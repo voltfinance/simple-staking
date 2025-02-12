@@ -1,0 +1,11 @@
+{
+  "name": "minimalist-dex",
+  "devDependencies": {
+    "solhint": "^3.3.7",
+    "solhint-plugin-prettier": "^0.0.5"
+  },
+  "scripts": {
+    "lint": "solhint 'src/**/*.sol' 'script/**/*.sol' 'test/**/*.sol'",
+    "lint:fix": "solhint --fix 'src/**/*.sol' 'script/**/*.sol' 'test/**/*.sol'"
+  }
+}
