@@ -9,7 +9,14 @@ import {ISimpleRewarderPerSec} from "../src/interfaces/ISimpleRewarderPerSec.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract DeployScript is Script {
-    function run() external {
+    string public forkUrl;
+    uint256 public fork;
+
+    function run() public {
+        forkUrl = vm.envString("TEST_RPC_URL");
+        fork = vm.createFork(forkUrl);
+        vm.selectFork(fork);
+
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
@@ -20,19 +27,18 @@ contract DeployScript is Script {
 
         // Deploy staking chef first
         DeploySimpleStakingChefScript stakingDeployer = new DeploySimpleStakingChefScript();
-        (, address stakingChefProxy) = stakingDeployer.run();
+        (address chefImplementation, address stakingChefProxy) = stakingDeployer.run();
+        console2.log("SimpleStakingChef Proxy:", stakingChefProxy);
+        console2.log("SimpleStakingChef Implementation:", chefImplementation);
 
         // Deploy rewarder with staking chef address
         DeploySimpleRewarderPerSecScript rewarderDeployer = new DeploySimpleRewarderPerSecScript();
-        (, address rewarderProxy) = rewarderDeployer.run(lpToken, rewardToken, stakingChefProxy, tokenPerSec);
+        address rewarderImplementation = rewarderDeployer.run(lpToken, rewardToken, stakingChefProxy, tokenPerSec);
+        console2.log("SimpleRewarderPerSec Implementation:", rewarderImplementation);
 
         // Set up the pool in staking chef
-        ISimpleStakingChef(stakingChefProxy).add(0, IERC20(lpToken), ISimpleRewarderPerSec(rewarderProxy));
+        ISimpleStakingChef(stakingChefProxy).add(0, IERC20(lpToken), ISimpleRewarderPerSec(rewarderImplementation));
 
         vm.stopBroadcast();
-
-        console2.log("Deployment Addresses:");
-        console2.log("SimpleStakingChef Proxy:", stakingChefProxy);
-        console2.log("SimpleRewarderPerSec Proxy:", rewarderProxy);
     }
 }

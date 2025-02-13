@@ -11,7 +11,6 @@ inspect :; forge inspect ${contract} storage-layout --pretty
 # specify which fork to use. set this in our .env
 # if we want to test multiple forks in one go, remove this as an argument below
 FORK_URL := ${TEST_RPC_URL} # BASE_RPC_URL, ETH_RPC_URL, ARBITRUM_RPC_URL
-PRIVATE_KEY := ${PRIVATE_KEY}
 
 # if we want to run only matching tests, set that here
 test := test_
@@ -41,7 +40,7 @@ clean :; forge clean
 format :; forge fmt
 format-check :; forge fmt --check
 
-deploy :; forge script script/Deploy.s.sol:DeployScript --rpc-url ${FORK_URL} --private-key ${PRIVATE_KEY} --broadcast
+deploy :; forge script script/Deploy.s.sol:DeployScript --verify -vvvv --force
 
 coverage-html:
 	@echo "Running coverage..."

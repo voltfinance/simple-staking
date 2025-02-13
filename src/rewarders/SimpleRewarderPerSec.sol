@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.25;
 
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ISimpleStakingChef} from "../interfaces/ISimpleStakingChef.sol";
@@ -16,7 +16,7 @@ import {ISimpleStakingChef} from "../interfaces/ISimpleStakingChef.sol";
  * 100,000 XYZ and set the block reward accordingly so it's fully distributed after 30 days.
  *
  */
-contract SimpleRewarderPerSec is OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 public immutable REWARD_TOKEN;
@@ -63,7 +63,9 @@ contract SimpleRewarderPerSec is OwnableUpgradeable, ReentrancyGuardUpgradeable 
         _;
     }
 
-    constructor(IERC20 _rewardToken, IERC20 _lpToken, uint256 _tokenPerSec, ISimpleStakingChef _mcj, bool _isNative) {
+    constructor(IERC20 _rewardToken, IERC20 _lpToken, uint256 _tokenPerSec, ISimpleStakingChef _mcj, bool _isNative)
+        Ownable(msg.sender)
+    {
         if (address(_rewardToken) == address(0)) revert InvalidRewardToken();
         if (address(_lpToken) == address(0)) revert InvalidLPToken();
         if (address(_mcj) == address(0)) revert InvalidMCJ();
@@ -74,11 +76,6 @@ contract SimpleRewarderPerSec is OwnableUpgradeable, ReentrancyGuardUpgradeable 
         MCJ = _mcj;
         IS_NATIVE = _isNative;
         poolInfo = PoolInfo({lastRewardTimestamp: block.timestamp, accTokenPerShare: 0});
-    }
-
-    function initialize() external initializer {
-        __Ownable_init(msg.sender);
-        __ReentrancyGuard_init();
     }
 
     /// @notice Update reward variables of the given poolInfo.
