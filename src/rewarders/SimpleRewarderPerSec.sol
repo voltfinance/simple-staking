@@ -122,22 +122,22 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
             if (IS_NATIVE) {
                 uint256 bal = address(this).balance;
                 if (pending > bal) {
+                    user.unpaidRewards = pending - bal;
                     (bool success,) = _user.call{value: bal}("");
                     if (!success) revert TransferFailed();
-                    user.unpaidRewards = pending - bal;
                 } else {
+                    user.unpaidRewards = 0;
                     (bool success,) = _user.call{value: pending}("");
                     if (!success) revert TransferFailed();
-                    user.unpaidRewards = 0;
                 }
             } else {
                 uint256 bal = REWARD_TOKEN.balanceOf(address(this));
                 if (pending > bal) {
-                    REWARD_TOKEN.safeTransfer(_user, bal);
                     user.unpaidRewards = pending - bal;
+                    REWARD_TOKEN.safeTransfer(_user, bal);
                 } else {
-                    REWARD_TOKEN.safeTransfer(_user, pending);
                     user.unpaidRewards = 0;
+                    REWARD_TOKEN.safeTransfer(_user, pending);
                 }
             }
         }
