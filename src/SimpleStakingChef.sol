@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "./interfaces/ISimpleRewarderPerSec.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ISimpleRewarderPerSec} from "./interfaces/ISimpleRewarderPerSec.sol";
 
 /// @notice The (older) MasterChefVoltV2 contract gives out a constant number of VOLT tokens per block.
 /// It is the only address with minting rights for VOLT.
@@ -53,6 +53,8 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
     event EmergencyWithdraw(address indexed user, uint256 indexed pid, uint256 amount);
     event Init();
 
+    error LPAlreadyAdded();
+
     constructor() Ownable(msg.sender) {}
 
     /// @notice Returns the number of MCJV3 pools.
@@ -62,11 +64,11 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
 
     /// @notice Add a new LP to the pool. Can only be called by the owner.
     /// DO NOT add the same LP token more than once. Rewards will be messed up if you do.
-    /// @param allocPoint AP of the new pool.
+    /// @param _allocPoint AP of the new pool.
     /// @param _lpToken Address of the LP ERC-20 token.
     /// @param _rewarder Address of the rewarder delegate.
-    function add(uint256 allocPoint, IERC20 _lpToken, ISimpleRewarderPerSec _rewarder) external onlyOwner {
-        require(!lpTokens.contains(address(_lpToken)), "add: LP already added");
+    function add(uint256 _allocPoint, IERC20 _lpToken, ISimpleRewarderPerSec _rewarder) external onlyOwner {
+        if (lpTokens.contains(address(_lpToken))) revert LPAlreadyAdded();
         // Sanity check to ensure _lpToken is an ERC20 token
         _lpToken.balanceOf(address(this));
         // Sanity check if we add a rewarder
@@ -79,14 +81,14 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
         poolInfo.push(
             PoolInfo({
                 lpToken: _lpToken,
-                allocPoint: allocPoint,
+                allocPoint: _allocPoint,
                 lastRewardTimestamp: lastRewardTimestamp,
                 accVoltPerShare: 0,
                 rewarder: _rewarder
             })
         );
         lpTokens.add(address(_lpToken));
-        emit Add(poolInfo.length - 1, allocPoint, _lpToken, _rewarder);
+        emit Add(poolInfo.length - 1, _allocPoint, _lpToken, _rewarder);
     }
 
     /// @notice Update the given pool's VOLT allocation point and `IRewarder` contract. Can only be called by the owner.
@@ -126,24 +128,11 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
         )
     {
         PoolInfo memory pool = poolInfo[_pid];
-        UserInfo storage user = userInfo[_pid][_user];
-        uint256 accVoltPerShare = pool.accVoltPerShare;
-        uint256 lpSupply = pool.lpToken.balanceOf(address(this));
-
         // If it's a double reward farm, we return info about the bonus token
         if (address(pool.rewarder) != address(0)) {
-            bonusTokenAddress = address(pool.rewarder.rewardToken());
+            bonusTokenAddress = address(pool.rewarder.REWARD_TOKEN());
             bonusTokenSymbol = IERC20Metadata(bonusTokenAddress).symbol();
             pendingBonusToken = pool.rewarder.pendingTokens(_user);
-        }
-    }
-
-    /// @notice Update reward variables for all pools. Be careful of gas spending!
-    /// @param pids Pool IDs of all to be updated. Make sure to update all active pools.
-    function massUpdatePools(uint256[] calldata pids) external {
-        uint256 len = pids.length;
-        for (uint256 i = 0; i < len; ++i) {
-            updatePool(pids[i]);
         }
     }
 

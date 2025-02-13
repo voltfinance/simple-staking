@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.25;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "../interfaces/ISimpleStakingChef.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ISimpleStakingChef} from "../interfaces/ISimpleStakingChef.sol";
 
 /**
  * This is a sample contract to be used in the MasterChefVolt contract for partners to reward
@@ -19,9 +19,9 @@ import "../interfaces/ISimpleStakingChef.sol";
 contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable rewardToken;
-    IERC20 public immutable lpToken;
-    bool public immutable isNative;
+    IERC20 public immutable REWARD_TOKEN;
+    IERC20 public immutable LP_TOKEN;
+    bool public immutable IS_NATIVE;
     ISimpleStakingChef public immutable MCJ;
 
     /// @notice Info of each MCJ user.
@@ -52,23 +52,29 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
     event OnReward(address indexed user, uint256 amount);
     event RewardRateUpdated(uint256 oldRate, uint256 newRate);
 
+    error OnlyMCJ();
+    error InvalidRewardToken();
+    error InvalidLPToken();
+    error InvalidMCJ();
+    error TransferFailed();
+
     modifier onlyMCJ() {
-        require(msg.sender == address(MCJ), "onlyMCJ: only MasterChefVolt can call this function");
+        if (msg.sender != address(MCJ)) revert OnlyMCJ();
         _;
     }
 
-    constructor(IERC20 _rewardToken, IERC20 _lpToken, uint256 _tokenPerSec, ISimpleStakingChef _MCJ, bool _isNative)
+    constructor(IERC20 _rewardToken, IERC20 _lpToken, uint256 _tokenPerSec, ISimpleStakingChef _mcj, bool _isNative)
         Ownable(msg.sender)
     {
-        require(address(_rewardToken) != address(0), "constructor: reward token must be a valid contract");
-        require(address(_lpToken) != address(0), "constructor: LP token must be a valid contract");
-        require(address(_MCJ) != address(0), "constructor: MasterChefVolt must be a valid contract");
+        if (address(_rewardToken) == address(0)) revert InvalidRewardToken();
+        if (address(_lpToken) == address(0)) revert InvalidLPToken();
+        if (address(_mcj) == address(0)) revert InvalidMCJ();
 
-        rewardToken = _rewardToken;
-        lpToken = _lpToken;
+        REWARD_TOKEN = _rewardToken;
+        LP_TOKEN = _lpToken;
         tokenPerSec = _tokenPerSec;
-        MCJ = _MCJ;
-        isNative = _isNative;
+        MCJ = _mcj;
+        IS_NATIVE = _isNative;
         poolInfo = PoolInfo({lastRewardTimestamp: block.timestamp, accTokenPerShare: 0});
     }
 
@@ -78,7 +84,7 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
         pool = poolInfo;
 
         if (block.timestamp > pool.lastRewardTimestamp) {
-            uint256 lpSupply = lpToken.balanceOf(address(MCJ));
+            uint256 lpSupply = LP_TOKEN.balanceOf(address(MCJ));
 
             if (lpSupply > 0) {
                 uint256 timeElapsed = block.timestamp - pool.lastRewardTimestamp;
@@ -113,24 +119,24 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
         if (user.amount > 0) {
             pending = (user.amount * pool.accTokenPerShare / ACC_TOKEN_PRECISION) - user.rewardDebt + user.unpaidRewards;
 
-            if (isNative) {
+            if (IS_NATIVE) {
                 uint256 bal = address(this).balance;
                 if (pending > bal) {
                     (bool success,) = _user.call{value: bal}("");
-                    require(success, "Transfer failed");
+                    if (!success) revert TransferFailed();
                     user.unpaidRewards = pending - bal;
                 } else {
                     (bool success,) = _user.call{value: pending}("");
-                    require(success, "Transfer failed");
+                    if (!success) revert TransferFailed();
                     user.unpaidRewards = 0;
                 }
             } else {
-                uint256 bal = rewardToken.balanceOf(address(this));
+                uint256 bal = REWARD_TOKEN.balanceOf(address(this));
                 if (pending > bal) {
-                    rewardToken.safeTransfer(_user, bal);
+                    REWARD_TOKEN.safeTransfer(_user, bal);
                     user.unpaidRewards = pending - bal;
                 } else {
-                    rewardToken.safeTransfer(_user, pending);
+                    REWARD_TOKEN.safeTransfer(_user, pending);
                     user.unpaidRewards = 0;
                 }
             }
@@ -149,7 +155,7 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
         UserInfo storage user = userInfo[_user];
 
         uint256 accTokenPerShare = pool.accTokenPerShare;
-        uint256 lpSupply = lpToken.balanceOf(address(MCJ));
+        uint256 lpSupply = LP_TOKEN.balanceOf(address(MCJ));
 
         if (block.timestamp > pool.lastRewardTimestamp && lpSupply != 0) {
             uint256 timeElapsed = block.timestamp - pool.lastRewardTimestamp;
@@ -163,20 +169,20 @@ contract SimpleRewarderPerSec is Ownable, ReentrancyGuard {
     /// @notice In case rewarder is stopped before emissions finished, this function allows
     /// withdrawal of remaining tokens.
     function emergencyWithdraw() public onlyOwner {
-        if (isNative) {
+        if (IS_NATIVE) {
             (bool success,) = msg.sender.call{value: address(this).balance}("");
-            require(success, "Transfer failed");
+            if (!success) revert TransferFailed();
         } else {
-            rewardToken.safeTransfer(address(msg.sender), rewardToken.balanceOf(address(this)));
+            REWARD_TOKEN.safeTransfer(address(msg.sender), REWARD_TOKEN.balanceOf(address(this)));
         }
     }
 
     /// @notice View function to see balance of reward token.
     function balance() external view returns (uint256) {
-        if (isNative) {
+        if (IS_NATIVE) {
             return address(this).balance;
         } else {
-            return rewardToken.balanceOf(address(this));
+            return REWARD_TOKEN.balanceOf(address(this));
         }
     }
 
