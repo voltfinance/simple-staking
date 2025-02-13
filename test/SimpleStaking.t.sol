@@ -25,6 +25,7 @@ contract SimpleStakingTest is Test {
 
         // Deploy main contracts
         chef = new SimpleStakingChef();
+        chef.initialize();
         rewarder = new SimpleRewarderPerSec(
             rewardToken,
             lpToken,
@@ -32,6 +33,7 @@ contract SimpleStakingTest is Test {
             ISimpleStakingChef(address(chef)),
             false // not native token
         );
+        rewarder.initialize();
 
         // Setup initial state
         chef.add(0, lpToken, ISimpleRewarderPerSec(address(rewarder)));

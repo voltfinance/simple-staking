@@ -8,5 +8,5 @@ interface ISimpleRewarderPerSec {
 
     function pendingTokens(address user) external view returns (uint256 pending);
 
-    function REWARD_TOKEN() external view returns (IERC20);
+    function rewardToken() external view returns (IERC20);
 }

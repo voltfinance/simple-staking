@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,7 +14,7 @@ import {ISimpleRewarderPerSec} from "./interfaces/ISimpleRewarderPerSec.sol";
 /// The idea for this MasterChefVoltV3 (MCJV3) contract is therefore to be the owner of a dummy token
 /// that is deposited into the MasterChefVoltV2 (MCJV2) contract.
 /// The allocation point for this pool on MCJV3 is the total allocation point for all pools that receive double incentives.
-contract SimpleStakingChef is Ownable, ReentrancyGuard {
+contract SimpleStakingChef is OwnableUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -55,7 +55,10 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
 
     error LPAlreadyAdded();
 
-    constructor() Ownable(msg.sender) {}
+    function initialize() external initializer {
+        __Ownable_init(msg.sender);
+        __ReentrancyGuard_init();
+    }
 
     /// @notice Returns the number of MCJV3 pools.
     function poolLength() external view returns (uint256 pools) {
@@ -130,7 +133,7 @@ contract SimpleStakingChef is Ownable, ReentrancyGuard {
         PoolInfo memory pool = poolInfo[_pid];
         // If it's a double reward farm, we return info about the bonus token
         if (address(pool.rewarder) != address(0)) {
-            bonusTokenAddress = address(pool.rewarder.REWARD_TOKEN());
+            bonusTokenAddress = address(pool.rewarder.rewardToken());
             bonusTokenSymbol = IERC20Metadata(bonusTokenAddress).symbol();
             pendingBonusToken = pool.rewarder.pendingTokens(_user);
         }

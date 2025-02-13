@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ISimpleRewarderPerSec} from "./ISimpleRewarderPerSec.sol";
 
 interface ISimpleStakingChef {
     struct UserInfo {
@@ -21,4 +22,6 @@ interface ISimpleStakingChef {
     function totalAllocPoint() external view returns (uint256);
 
     function deposit(uint256 _pid, uint256 _amount) external;
+
+    function add(uint256 _allocPoint, IERC20 _lpToken, ISimpleRewarderPerSec _rewarder) external;
 }
