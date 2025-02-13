@@ -40,6 +40,8 @@ clean :; forge clean
 format :; forge fmt
 format-check :; forge fmt --check
 
+deploy :; forge script script/Deploy.s.sol:DeployScript --verify -vvvv --force
+
 coverage-html:
 	@echo "Running coverage..."
 	forge coverage --report lcov --fork-url ${FORK_URL}

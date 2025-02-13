@@ -2,11 +2,15 @@
 src = "src"
 out = "out"
 libs = ["node_modules", "lib"]
-evm_version = "cancun"
+evm_version = "london"
 optimizer = true
 optimizer_runs = 10_000_000
 solc = "0.8.25"
 verbosity = 3
+ffi = true
+ast = true
+build_info = true
+extra_output = ["storageLayout"]
 
 [profile.ci]
 fuzz = { runs = 5000 }
